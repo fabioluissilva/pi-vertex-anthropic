@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Registered Claude 5-generation models (`claude-sonnet-5`, `claude-opus-5`) in the model catalog with adaptive thinking support. Fixes an issue where invoking Claude 5 models on Vertex AI failed with HTTP 400 (`"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`) because they were not mapped in `ADAPTIVE_THINKING` and fell through to legacy budget-based thinking.
+
 ### Changed
 
 - **Breaking:** requires pi 1.0 or newer (peer dependencies `>=1.0.0`). pi-ai 1.0 removed `streamAnthropic` from its root entry point, so the extension now imports `@earendil-works/pi-ai/compat`, which pi's extension loader maps to its own bundled pi-ai, and streams through `anthropicMessagesApi().stream`. On pi 0.75.x–0.79.x, stay on `0.7.x`.
@@ -18,6 +22,13 @@
 - Development dependencies on pi `1.0.4`. `pi-coding-agent` 0.79.x pins vulnerable `undici`, `minimatch`, and `protobufjs` versions, so `npm audit` (and CI) failed; it now finds none.
 
 ## 0.7.0 — 2026-06-18
+
+## 0.7.0 — 2026-06-18
+=======
+### Added
+
+- Registered Claude 5-generation models (`claude-sonnet-5`, `claude-opus-5`) in the model catalog with adaptive thinking support. Fixes an issue where invoking Claude 5 models on Vertex AI failed with HTTP 400 (`"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`) because they were not mapped in `ADAPTIVE_THINKING` and fell through to legacy budget-based thinking.
+>>>>>>> a8bf935 (fix: support adaptive thinking for Claude 5 models (Sonnet 5, Opus 5))
 
 ### Fixed
 
