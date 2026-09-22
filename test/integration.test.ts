@@ -65,7 +65,7 @@ function fakeClient(capture: { params?: any }) {
 }
 
 describe("provider registration", () => {
-	it("registers the vertex-anthropic provider with oauth + 5 models", () => {
+	it("registers the vertex-anthropic provider with oauth + 7 models", () => {
 		const { name, config } = register();
 		expect(name).toBe("vertex-anthropic");
 		expect(config.api).toBe("vertex-anthropic");
@@ -76,7 +76,15 @@ describe("provider registration", () => {
 
 		const ids = config.models.map((m: { id: string }) => m.id).sort();
 		expect(ids).toEqual(
-			["claude-fable-5", "claude-haiku-4-5@20251001", "claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-4-6"].sort(),
+			[
+				"claude-fable-5",
+				"claude-haiku-4-5@20251001",
+				"claude-opus-4-7",
+				"claude-opus-4-8",
+				"claude-opus-5",
+				"claude-sonnet-4-6",
+				"claude-sonnet-5",
+			].sort(),
 		);
 	});
 
@@ -135,6 +143,44 @@ describe("streamAnthropic contract (no network)", () => {
 		expect(capture.params.model).toBe("claude-fable-5");
 		expect(capture.params.thinking.type).toBe("adaptive");
 		expect(capture.params.output_config).toEqual({ effort: "xhigh" });
+		expect(events.some((e) => e.type === "error")).toBe(true);
+	});
+
+	it("drives Sonnet 5 through pi-ai as adaptive thinking with effort clamped to high", async () => {
+		const { config } = register();
+		const model = modelById(config, "claude-sonnet-5");
+		const capture: { params?: ProviderConfig } = {};
+		const opts = buildAnthropicOptions(model, { reasoning: "xhigh" });
+		opts.client = fakeClient(capture) as unknown as typeof opts.client;
+
+		const events: Array<{ type: string }> = [];
+		for await (const ev of streamAnthropic(asAnthropicMessagesModel(model), CONTEXT, opts)) {
+			events.push(ev);
+		}
+
+		expect(capture.params.model).toBe("claude-sonnet-5");
+		expect(capture.params.thinking.type).toBe("adaptive");
+		expect(capture.params.output_config).toEqual({ effort: "high" });
+		expect(capture.params.stream).toBe(true);
+		expect(events.some((e) => e.type === "error")).toBe(true);
+	});
+
+	it("drives Opus 5 through pi-ai as adaptive thinking with xhigh effort", async () => {
+		const { config } = register();
+		const model = modelById(config, "claude-opus-5");
+		const capture: { params?: ProviderConfig } = {};
+		const opts = buildAnthropicOptions(model, { reasoning: "xhigh" });
+		opts.client = fakeClient(capture) as unknown as typeof opts.client;
+
+		const events: Array<{ type: string }> = [];
+		for await (const ev of streamAnthropic(asAnthropicMessagesModel(model), CONTEXT, opts)) {
+			events.push(ev);
+		}
+
+		expect(capture.params.model).toBe("claude-opus-5");
+		expect(capture.params.thinking.type).toBe("adaptive");
+		expect(capture.params.output_config).toEqual({ effort: "xhigh" });
+		expect(capture.params.stream).toBe(true);
 		expect(events.some((e) => e.type === "error")).toBe(true);
 	});
 

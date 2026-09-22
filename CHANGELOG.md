@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Registered Claude 5-generation models (`claude-sonnet-5`, `claude-opus-5`) in the model catalog with adaptive thinking support. Fixes an issue where invoking Claude 5 models on Vertex AI failed with HTTP 400 (`"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`) because they were not mapped in `ADAPTIVE_THINKING` and fell through to legacy budget-based thinking.
+
 ### Fixed
 
 - Corrected `claude-fable-5` pricing, limits, and `xhigh` routing. It was registered at Sonnet-tier cost (`$3` / `$15` per MTok, 200K context, 64K output) and clamped `xhigh` to `high`; Fable 5 is actually `$10` / `$50` per MTok with a 1M context window, 128K max output, and `xhigh` support, so pi was under-reporting Fable spend by roughly 3.3× and under-routing its highest thinking level. Now matches Anthropic/pi-ai model metadata.

@@ -11,7 +11,9 @@ describe("isAdaptiveThinkingModel", () => {
 	it("recognises every adaptive-thinking model in the registry", () => {
 		expect(isAdaptiveThinkingModel("claude-opus-4-7")).toBe(true);
 		expect(isAdaptiveThinkingModel("claude-opus-4-8")).toBe(true);
+		expect(isAdaptiveThinkingModel("claude-opus-5")).toBe(true);
 		expect(isAdaptiveThinkingModel("claude-sonnet-4-6")).toBe(true);
+		expect(isAdaptiveThinkingModel("claude-sonnet-5")).toBe(true);
 		expect(isAdaptiveThinkingModel("claude-fable-5")).toBe(true);
 	});
 
@@ -43,19 +45,21 @@ describe("effortFor", () => {
 		expect(effortFor(adaptive, "high")).toBe("high");
 	});
 
-	it("maps xhigh to 'xhigh' on Opus 4.7 / 4.8 and Fable 5 (models that expose the slot)", () => {
+	it("maps xhigh to 'xhigh' on Opus 4.7 / 4.8 / 5 and Fable 5 (models that expose the slot)", () => {
 		// Matches upstream pi-ai's built-in registry, which ships
 		// thinkingLevelMap: { xhigh: "xhigh" } for these models.
 		expect(effortFor("claude-opus-4-7", "xhigh")).toBe("xhigh");
 		expect(effortFor("claude-opus-4-8", "xhigh")).toBe("xhigh");
+		expect(effortFor("claude-opus-5", "xhigh")).toBe("xhigh");
 		expect(effortFor("claude-fable-5", "xhigh")).toBe("xhigh");
 	});
 
 	it("clamps xhigh down to 'high' on models without an xhigh slot", () => {
-		// Sonnet 4.6 — upstream pi-ai's built-in entry has no thinkingLevelMap,
+		// Sonnet 4.6 / 5 — upstream pi-ai's built-in entry has no thinkingLevelMap,
 		// the API rejects effort=xhigh, and upstream's mapThinkingLevelToEffort
 		// falls through to "high". We must match that or the API will 400.
 		expect(effortFor("claude-sonnet-4-6", "xhigh")).toBe("high");
+		expect(effortFor("claude-sonnet-5", "xhigh")).toBe("high");
 	});
 
 	it("resolves effort for @DATE-suffixed model ids", () => {
@@ -117,7 +121,14 @@ describe("asAnthropicMessagesModel", () => {
 	// silently downgrades adaptive models to legacy budget-based thinking with
 	// the default 1024-token budget, dropping our computed `effort` on the floor.
 	it("injects compat.forceAdaptiveThinking for adaptive models", () => {
-		for (const id of ["claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-4-6", "claude-fable-5"]) {
+		for (const id of [
+			"claude-opus-4-7",
+			"claude-opus-4-8",
+			"claude-opus-5",
+			"claude-sonnet-4-6",
+			"claude-sonnet-5",
+			"claude-fable-5",
+		]) {
 			const out = asAnthropicMessagesModel(fakeModel(id)) as Model<Api> & {
 				compat?: { forceAdaptiveThinking?: boolean };
 			};

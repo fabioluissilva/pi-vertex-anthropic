@@ -412,7 +412,9 @@ type PiThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 const ADAPTIVE_THINKING: Record<string, { xhigh?: "xhigh" | "max" }> = {
 	"claude-opus-4-7": { xhigh: "xhigh" },
 	"claude-opus-4-8": { xhigh: "xhigh" },
+	"claude-opus-5": { xhigh: "xhigh" },
 	"claude-sonnet-4-6": {},
+	"claude-sonnet-5": {},
 	"claude-fable-5": { xhigh: "xhigh" },
 };
 
@@ -620,6 +622,25 @@ export default function (pi: ExtensionAPI) {
 		// Vertex AI model IDs verified against Anthropic's docs:
 		// https://platform.claude.com/docs/en/about-claude/models/overview
 		models: [
+			{
+				id: "claude-opus-5",
+				name: "Claude Opus 5 (Vertex)",
+				reasoning: true, // adaptive thinking; effort: low/medium/high/xhigh
+				thinkingLevelMap: { xhigh: "xhigh" },
+				input: ["text", "image"],
+				contextWindow: 1_000_000,
+				maxTokens: 128_000,
+				cost: { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+			},
+			{
+				id: "claude-sonnet-5",
+				name: "Claude Sonnet 5 (Vertex)",
+				reasoning: true, // adaptive thinking; effort: low/medium/high (no xhigh)
+				input: ["text", "image"],
+				contextWindow: 1_000_000,
+				maxTokens: 64_000,
+				cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+			},
 			{
 				id: "claude-opus-4-7",
 				name: "Claude Opus 4.7 (Vertex)",
