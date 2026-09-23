@@ -400,8 +400,8 @@ type PiThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
  * level `xhigh`. Omit it to clamp `xhigh` down to `high` (matching upstream
  * pi-ai's `mapThinkingLevelToEffort` fallback).
  *
- *   • Opus 4.7 / 4.8 and Fable 5 — adaptive with xhigh. We map xhigh →
- *     "xhigh" to match pi-ai's built-in registry, which ships
+ *   • Opus 4.7 / 4.8 / 5, Fable 5, and Sonnet 5 — adaptive with xhigh. We map
+ *     xhigh → "xhigh" to match pi-ai's built-in registry, which ships
  *     `thinkingLevelMap: { xhigh: "xhigh" }` for these models. (The SDK also
  *     exposes a stronger "max" effort value for older Opus models, but pi-ai's
  *     own registry never selects it here — staying in sync avoids drift.)
@@ -414,7 +414,7 @@ const ADAPTIVE_THINKING: Record<string, { xhigh?: "xhigh" | "max" }> = {
 	"claude-opus-4-8": { xhigh: "xhigh" },
 	"claude-opus-5": { xhigh: "xhigh" },
 	"claude-sonnet-4-6": {},
-	"claude-sonnet-5": {},
+	"claude-sonnet-5": { xhigh: "xhigh" },
 	"claude-fable-5": { xhigh: "xhigh" },
 };
 
@@ -633,13 +633,19 @@ export default function (pi: ExtensionAPI) {
 				cost: { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
 			},
 			{
+				// Pricing and limits from Anthropic's published Sonnet 5 model
+				// card ($2 / $10 per MTok; cache read 0.1×, 5-min cache write
+				// 1.25×; 1M context, 128K max output). Vertex bills the same
+				// per-token rates. xhigh is enabled to match Anthropic/pi-ai
+				// model metadata.
 				id: "claude-sonnet-5",
 				name: "Claude Sonnet 5 (Vertex)",
-				reasoning: true, // adaptive thinking; effort: low/medium/high (no xhigh)
+				reasoning: true, // adaptive thinking; effort: low/medium/high/xhigh
+				thinkingLevelMap: { xhigh: "xhigh" },
 				input: ["text", "image"],
 				contextWindow: 1_000_000,
-				maxTokens: 64_000,
-				cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+				maxTokens: 128_000,
+				cost: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
 			},
 			{
 				id: "claude-opus-4-7",

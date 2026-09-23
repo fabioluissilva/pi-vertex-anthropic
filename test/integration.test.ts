@@ -103,6 +103,15 @@ describe("provider registration", () => {
 		expect(opus.cost).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 });
 		expect(opus.thinkingLevelMap).toEqual({ xhigh: "xhigh" });
 	});
+
+	it("registers sonnet-5 with Sonnet 5 pricing, limits, and xhigh metadata", () => {
+		const { config } = register();
+		const sonnet = config.models.find((m: { id: string }) => m.id === "claude-sonnet-5");
+		expect(sonnet.contextWindow).toBe(1_000_000);
+		expect(sonnet.maxTokens).toBe(128_000);
+		expect(sonnet.cost).toEqual({ input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 });
+		expect(sonnet.thinkingLevelMap).toEqual({ xhigh: "xhigh" });
+	});
 });
 
 describe("streamAnthropic contract (no network)", () => {
@@ -146,7 +155,7 @@ describe("streamAnthropic contract (no network)", () => {
 		expect(events.some((e) => e.type === "error")).toBe(true);
 	});
 
-	it("drives Sonnet 5 through pi-ai as adaptive thinking with effort clamped to high", async () => {
+	it("drives Sonnet 5 through pi-ai as adaptive thinking with xhigh effort", async () => {
 		const { config } = register();
 		const model = modelById(config, "claude-sonnet-5");
 		const capture: { params?: ProviderConfig } = {};
@@ -160,7 +169,7 @@ describe("streamAnthropic contract (no network)", () => {
 
 		expect(capture.params.model).toBe("claude-sonnet-5");
 		expect(capture.params.thinking.type).toBe("adaptive");
-		expect(capture.params.output_config).toEqual({ effort: "high" });
+		expect(capture.params.output_config).toEqual({ effort: "xhigh" });
 		expect(capture.params.stream).toBe(true);
 		expect(events.some((e) => e.type === "error")).toBe(true);
 	});
