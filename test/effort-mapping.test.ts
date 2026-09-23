@@ -45,25 +45,26 @@ describe("effortFor", () => {
 		expect(effortFor(adaptive, "high")).toBe("high");
 	});
 
-	it("maps xhigh to 'xhigh' on Opus 4.7 / 4.8 / 5 and Fable 5 (models that expose the slot)", () => {
+	it("maps xhigh to 'xhigh' on Opus 4.7 / 4.8 / 5, Sonnet 5, and Fable 5 (models that expose the slot)", () => {
 		// Matches upstream pi-ai's built-in registry, which ships
 		// thinkingLevelMap: { xhigh: "xhigh" } for these models.
 		expect(effortFor("claude-opus-4-7", "xhigh")).toBe("xhigh");
 		expect(effortFor("claude-opus-4-8", "xhigh")).toBe("xhigh");
 		expect(effortFor("claude-opus-5", "xhigh")).toBe("xhigh");
+		expect(effortFor("claude-sonnet-5", "xhigh")).toBe("xhigh");
 		expect(effortFor("claude-fable-5", "xhigh")).toBe("xhigh");
 	});
 
 	it("clamps xhigh down to 'high' on models without an xhigh slot", () => {
-		// Sonnet 4.6 / 5 — upstream pi-ai's built-in entry has no thinkingLevelMap,
+		// Sonnet 4.6 — upstream pi-ai's built-in entry has no thinkingLevelMap,
 		// the API rejects effort=xhigh, and upstream's mapThinkingLevelToEffort
 		// falls through to "high". We must match that or the API will 400.
 		expect(effortFor("claude-sonnet-4-6", "xhigh")).toBe("high");
-		expect(effortFor("claude-sonnet-5", "xhigh")).toBe("high");
 	});
 
 	it("resolves effort for @DATE-suffixed model ids", () => {
 		expect(effortFor("claude-opus-4-7@20260301", "xhigh")).toBe("xhigh");
+		expect(effortFor("claude-sonnet-5@20260301", "xhigh")).toBe("xhigh");
 		expect(effortFor("claude-sonnet-4-6@20260301", "xhigh")).toBe("high");
 	});
 
