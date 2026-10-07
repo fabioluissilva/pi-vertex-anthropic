@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- Required `@anthropic-ai/sdk` `>=0.103.0 <1` as a direct dependency. `@anthropic-ai/vertex-sdk` accepts any core SDK from `0.50.3`, but it rewrites `/v1/messages` to the Vertex `:streamRawPredict` path only through the `backendMiddleware` hook that `@anthropic-ai/sdk` `0.103.0` added. With an older core SDK, every request went to `…/v1/v1/messages` and Google returned 404. `test/vertex-wire-shape.test.ts` checks the URL.
+
+## 0.7.0 — 2026-06-18
+
+### Fixed
+
 - Corrected `claude-fable-5` pricing, limits, and `xhigh` routing. It was registered at Sonnet-tier cost (`$3` / `$15` per MTok, 200K context, 64K output) and clamped `xhigh` to `high`; Fable 5 is actually `$10` / `$50` per MTok with a 1M context window, 128K max output, and `xhigh` support, so pi was under-reporting Fable spend by roughly 3.3× and under-routing its highest thinking level. Now matches Anthropic/pi-ai model metadata.
 
 ### Changed
@@ -26,11 +32,18 @@
 
 - Clarified the relationship to pi-ai's built-in `google-vertex` provider (Gemini) versus this extension's `vertex-anthropic` (Claude), since both now appear in `pi --list-models`.
 
+## 0.6.0 — 2026-06-16
+
+### Changed
+
+- Updated `@anthropic-ai/vertex-sdk` from `0.16.1` to `0.17.1`, and the development dependencies.
+- Made `@earendil-works/pi-coding-agent` an optional peer dependency: the extension declares the provider types it uses instead of importing `ExtensionAPI` from it.
+
 ## 0.5.0 — 2026-06-14
 
 ### Added
 
-- New models registered from the Vertex Model Garden catalog: `claude-opus-4-8` and `claude-fable-5`. (Both shipped in this release with provisional, sibling-modeled pricing; corrected under Unreleased above.)
+- New models registered from the Vertex Model Garden catalog: `claude-opus-4-8` and `claude-fable-5`. (Both shipped in this release with provisional, sibling-modeled pricing; corrected in 0.7.0.)
 - `adjustMaxTokensForThinking` helper (exported, tested) — mirrors upstream pi-ai's `providers/simple-options.js:adjustMaxTokensForThinking`. Grows `max_tokens` to absorb the thinking budget, capped at the model maximum, and shrinks the budget when even the cap can't fit a 1024-token minimum output window. Eliminates the failure mode where `--thinking high` on a small `--max-tokens` request produced a 400 from Anthropic (`budget_tokens` must be `< max_tokens`).
 - Dependabot configuration (weekly `npm` and `github-actions` updates).
 - GitHub Release creation in the release workflow.
