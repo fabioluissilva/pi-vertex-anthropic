@@ -4,6 +4,7 @@
 
 ### Added
 
+- Registered the remaining adaptive-thinking Claude models on Vertex AI: `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, and `claude-opus-4-6`. All four are adaptive-only — Vertex rejects legacy `thinking.type.enabled` with HTTP 400 — so they are mapped in `ADAPTIVE_THINKING`; without that mapping every reasoning request fails. `claude-opus-5-5`, `claude-sonnet-5-5`, and `claude-fable-5-1` expose the `xhigh` slot; `claude-opus-4-6` has none and clamps `xhigh` to `high`, like Sonnet 4.6. Metadata mirrors pi-ai's registry: Opus 5.5 at `$4` / `$20` per MTok (cheaper than Opus 5), Fable 5.1 at `$10` / `$50` with a 0.25× cache read, Sonnet 5.5 at `$2` / `$10`, Opus 4.6 at Opus-tier rates. A registration-level test now fails if a non-budget model is ever added without an `ADAPTIVE_THINKING` entry.
 - Registered Claude 5-generation models (`claude-sonnet-5`, `claude-opus-5`) in the model catalog with adaptive thinking support, including the `xhigh` effort slot on both. Fixes an issue where invoking Claude 5 models on Vertex AI failed with HTTP 400 (`"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`) because they were not mapped in `ADAPTIVE_THINKING` and fell through to legacy budget-based thinking.
 
 ### Changed
@@ -32,6 +33,7 @@
 
 ### Fixed
 
+- Corrected `claude-sonnet-4-6`'s output limit: it was registered with a 64K `max_tokens` cap while Vertex accepts 128K (`max_tokens: 128001 > 128000, which is the maximum allowed number of output tokens for claude-sonnet-4-6`). pi was therefore capping Sonnet 4.6 responses — and clamping its thinking-budget growth — at half the real limit. Now matches pi-ai's registry.
 - Corrected `claude-fable-5` pricing, limits, and `xhigh` routing. It was registered at Sonnet-tier cost (`$3` / `$15` per MTok, 200K context, 64K output) and clamped `xhigh` to `high`; Fable 5 is actually `$10` / `$50` per MTok with a 1M context window, 128K max output, and `xhigh` support, so pi was under-reporting Fable spend by roughly 3.3× and under-routing its highest thinking level. Now matches Anthropic/pi-ai model metadata.
 
 ### Changed
