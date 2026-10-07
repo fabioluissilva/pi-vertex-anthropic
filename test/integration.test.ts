@@ -219,7 +219,7 @@ describe("Anthropic Messages stream contract (no network)", () => {
 		opts.client = fakeClient(capture) as unknown as typeof opts.client;
 
 		const events: Array<{ type: string }> = [];
-		for await (const ev of streamAnthropic(asAnthropicMessagesModel(model), CONTEXT, opts)) {
+		for await (const ev of anthropicMessages.stream(asAnthropicMessagesModel(model), CONTEXT, opts)) {
 			events.push(ev);
 		}
 
@@ -238,7 +238,7 @@ describe("Anthropic Messages stream contract (no network)", () => {
 		opts.client = fakeClient(capture) as unknown as typeof opts.client;
 
 		const events: Array<{ type: string }> = [];
-		for await (const ev of streamAnthropic(asAnthropicMessagesModel(model), CONTEXT, opts)) {
+		for await (const ev of anthropicMessages.stream(asAnthropicMessagesModel(model), CONTEXT, opts)) {
 			events.push(ev);
 		}
 
