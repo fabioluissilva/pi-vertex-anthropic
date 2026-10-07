@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Api, Context, Model } from "@earendil-works/pi-ai";
-import { streamAnthropic } from "@earendil-works/pi-ai";
+import type { Api, Context, Model } from "@earendil-works/pi-ai/compat";
+import { anthropicMessagesApi, normalizeContext } from "@earendil-works/pi-ai/compat";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import extension, {
 	asAnthropicMessagesModel,
@@ -46,22 +46,21 @@ function register(): { name: string; config: ProviderConfig } {
 function modelById(config: ProviderConfig, id: string): Model<Api> {
 	const m = config.models.find((x: { id: string }) => x.id === id);
 	if (!m) throw new Error(`model ${id} not registered`);
-	// pi injects api/provider onto each model before handing it to streamSimple.
-	return { ...m, api: config.api, provider: "vertex-anthropic" } as unknown as Model<Api>;
+	// pi injects api/provider/baseUrl onto each model before handing it to streamSimple.
+	return { ...m, api: config.api, provider: "vertex-anthropic", baseUrl: config.baseUrl } as unknown as Model<Api>;
 }
 
-const CONTEXT = { messages: [{ role: "user", content: "hi", timestamp: 0 }] } as unknown as Context;
+const CONTEXT = normalizeContext({ messages: [{ role: "user", content: "hi", timestamp: 0 }] } as unknown as Context);
+const anthropicMessages = anthropicMessagesApi();
 
 function fakeClient(capture: { params?: any }) {
-	return {
-		messages: {
-			create: (params: unknown) => {
-				capture.params = params;
-				// Reject at the network boundary so no real request is made.
-				return { asResponse: () => Promise.reject(new Error("NO_NETWORK_IN_TEST")) };
-			},
-		},
+	const create = (params: unknown) => {
+		capture.params = params;
+		// Reject at the network boundary so no real request is made.
+		return { asResponse: () => Promise.reject(new Error("NO_NETWORK_IN_TEST")) };
 	};
+	// pi-ai 1.0 sends through client.beta.messages; 0.79 used client.messages.
+	return { messages: { create }, beta: { messages: { create } } };
 }
 
 describe("provider registration", () => {
@@ -97,7 +96,7 @@ describe("provider registration", () => {
 	});
 });
 
-describe("streamAnthropic contract (no network)", () => {
+describe("Anthropic Messages stream contract (no network)", () => {
 	it("drives an adaptive model through pi-ai with forceAdaptiveThinking + effort", async () => {
 		const { config } = register();
 		const model = modelById(config, "claude-opus-4-8");
@@ -106,7 +105,7 @@ describe("streamAnthropic contract (no network)", () => {
 		opts.client = fakeClient(capture) as unknown as typeof opts.client;
 
 		const events: Array<{ type: string }> = [];
-		for await (const ev of streamAnthropic(asAnthropicMessagesModel(model), CONTEXT, opts)) {
+		for await (const ev of anthropicMessages.stream(asAnthropicMessagesModel(model), CONTEXT, opts)) {
 			events.push(ev);
 		}
 
@@ -128,7 +127,7 @@ describe("streamAnthropic contract (no network)", () => {
 		opts.client = fakeClient(capture) as unknown as typeof opts.client;
 
 		const events: Array<{ type: string }> = [];
-		for await (const ev of streamAnthropic(asAnthropicMessagesModel(model), CONTEXT, opts)) {
+		for await (const ev of anthropicMessages.stream(asAnthropicMessagesModel(model), CONTEXT, opts)) {
 			events.push(ev);
 		}
 
@@ -146,7 +145,7 @@ describe("streamAnthropic contract (no network)", () => {
 		opts.client = fakeClient(capture) as unknown as typeof opts.client;
 
 		const events: Array<{ type: string }> = [];
-		for await (const ev of streamAnthropic(asAnthropicMessagesModel(model), CONTEXT, opts)) {
+		for await (const ev of anthropicMessages.stream(asAnthropicMessagesModel(model), CONTEXT, opts)) {
 			events.push(ev);
 		}
 
@@ -269,5 +268,28 @@ describe("ADC auth flow (mocked google-auth-library)", () => {
 
 		expect(cred.region).toBe("asia-southeast1");
 		expect(cred.projectId).toBe("env-proj");
+	});
+
+	it("refreshToken rejects with the abort reason when pi cancels it", async () => {
+		process.env.ANTHROPIC_VERTEX_PROJECT_ID = "env-proj";
+		gauth.getClient.mockReturnValue(new Promise(() => {}));
+		const { config } = register();
+		const controller = new AbortController();
+
+		const refresh = config.oauth.refreshToken({ access: "adc", refresh: "adc", expires: 0 }, controller.signal);
+		controller.abort(new Error("cancelled"));
+
+		await expect(refresh).rejects.toThrow("cancelled");
+	});
+
+	it("login rejects with the abort reason, not an ADC error, when pi cancels it", async () => {
+		gauth.getClient.mockReturnValue(new Promise(() => {}));
+		const { config } = register();
+		const controller = new AbortController();
+
+		const login = config.oauth.login({ ...callbacks(), signal: controller.signal });
+		controller.abort(new Error("cancelled"));
+
+		await expect(login).rejects.toThrow(/^cancelled$/);
 	});
 });

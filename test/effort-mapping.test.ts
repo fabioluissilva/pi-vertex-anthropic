@@ -1,4 +1,4 @@
-import type { Api, Model } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai/compat";
 import { describe, expect, it } from "vitest";
 import { adjustMaxTokensForThinking, asAnthropicMessagesModel, effortFor, isAdaptiveThinkingModel } from "../index.ts";
 

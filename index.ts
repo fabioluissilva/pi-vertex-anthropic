@@ -16,13 +16,14 @@
  * request.
  *
  * Streaming: injects the AnthropicVertex client into pi-ai's built-in
- * `streamAnthropic`, so all message conversion, SSE parsing, tool-call
- * handling, caching, and thinking-block plumbing comes from upstream pi-ai
- * for free.
+ * Anthropic Messages implementation (`anthropicMessagesApi().stream`), so all
+ * message conversion, SSE parsing, tool-call handling, caching, and
+ * thinking-block plumbing comes from upstream pi-ai for free.
  *
- * Namespace: imports target `@earendil-works/*` (pi 0.75+). The earlier
- * `@mariozechner/*` namespace (pi 0.73.x) is frozen; if you need that, use
- * release 0.1.x of this extension. See CHANGELOG.md.
+ * Imports: `@earendil-works/pi-ai/compat` (pi 1.0+), which pi's extension
+ * loader maps to its own bundled copy of pi-ai. For pi 0.75–0.79 use release
+ * 0.7.x of this extension; for the `@mariozechner/*` namespace (pi 0.73.x)
+ * use 0.1.x. See CHANGELOG.md.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -33,13 +34,13 @@ import {
 	type AnthropicOptions,
 	type Api,
 	type AssistantMessageEventStream,
-	type Context,
+	anthropicMessagesApi,
 	type Model,
 	type OAuthCredentials,
 	type OAuthLoginCallbacks,
 	type SimpleStreamOptions,
-	streamAnthropic,
-} from "@earendil-works/pi-ai";
+	type TranscriptContext,
+} from "@earendil-works/pi-ai/compat";
 
 interface ProviderModelConfig {
 	id: string;
@@ -58,11 +59,15 @@ interface ProviderConfig {
 	name?: string;
 	baseUrl?: string;
 	api?: Api;
-	streamSimple?: (model: Model<Api>, context: Context, options?: SimpleStreamOptions) => AssistantMessageEventStream;
+	streamSimple?: (
+		model: Model<Api>,
+		context: TranscriptContext,
+		options?: SimpleStreamOptions,
+	) => AssistantMessageEventStream;
 	oauth?: {
 		name: string;
 		login(callbacks: OAuthLoginCallbacks): Promise<OAuthCredentials>;
-		refreshToken(credentials: OAuthCredentials): Promise<OAuthCredentials>;
+		refreshToken(credentials: OAuthCredentials, signal: AbortSignal): Promise<OAuthCredentials>;
 		getApiKey(credentials: OAuthCredentials): string;
 	};
 	models?: ProviderModelConfig[];
@@ -241,6 +246,21 @@ const REGION_OPTIONS: readonly { readonly id: string; readonly label: string }[]
 	{ id: "asia-southeast1", label: "asia-southeast1 — Singapore" },
 ] as const;
 
+/**
+ * Settle with the promise, or reject with the abort reason as soon as the
+ * signal aborts. google-auth-library takes no AbortSignal, so this is how
+ * /login and refresh return promptly when pi cancels them.
+ */
+function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+	if (!signal) return promise;
+	signal.throwIfAborted();
+	return new Promise<T>((resolve, reject) => {
+		const onAbort = () => reject(signal.reason);
+		signal.addEventListener("abort", onAbort, { once: true });
+		promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+	});
+}
+
 async function probeAdcProject(): Promise<string> {
 	// Dynamic import: google-auth-library ships transitively with @anthropic-ai/vertex-sdk.
 	// Loaded on demand so plain `pi --list-models` doesn't pay the cost.
@@ -314,8 +334,9 @@ async function loginAdc(callbacks: OAuthLoginCallbacks): Promise<OAuthCredential
 
 	let projectId: string;
 	try {
-		projectId = await probeAdcProject();
+		projectId = await abortable(probeAdcProject(), callbacks.signal);
 	} catch (err) {
+		if (callbacks.signal?.aborted) throw err;
 		const reason = err instanceof Error ? err.message : String(err);
 		throw new Error(
 			`ADC not configured: ${reason}\n\n` +
@@ -346,12 +367,13 @@ async function loginAdc(callbacks: OAuthLoginCallbacks): Promise<OAuthCredential
 	};
 }
 
-async function refreshAdc(credentials: OAuthCredentials): Promise<OAuthCredentials> {
+async function refreshAdc(credentials: OAuthCredentials, signal?: AbortSignal): Promise<OAuthCredentials> {
 	// google-auth-library handles real per-request token refresh internally.
 	// On daily re-validation we just re-probe ADC, but we PRESERVE the user's
 	// region choice from the existing credential — refreshes should never
-	// silently re-prompt or reset the region.
-	const projectId = await probeAdcProject();
+	// silently re-prompt or reset the region. pi passes an abort signal (pi
+	// 0.84+ requires refreshToken to honor it).
+	const projectId = await abortable(probeAdcProject(), signal);
 	const storedRegion = typeof credentials.region === "string" ? credentials.region : undefined;
 	const region = storedRegion && REGION_RE.test(storedRegion) ? storedRegion : DEFAULT_REGION;
 	// Drop our cached auth.json read so the next request re-resolves against
@@ -478,9 +500,9 @@ export function adjustMaxTokensForThinking(
 
 /**
  * Pure mapping from pi's SimpleStreamOptions to the AnthropicOptions that
- * streamAnthropic consumes — extracted from streamSimple so it can be unit
- * tested without constructing a Vertex client or touching the network. Does
- * NOT set `client`; streamSimple injects that separately.
+ * pi-ai's Anthropic Messages `stream` consumes — extracted from streamSimple
+ * so it can be unit tested without constructing a Vertex client or touching
+ * the network. Does NOT set `client`; streamSimple injects that separately.
  *
  * Thinking routing:
  *   • adaptive models → `effort` (via effortFor)
@@ -492,15 +514,19 @@ export function buildAnthropicOptions(model: Model<Api>, options?: SimpleStreamO
 		temperature: options?.temperature,
 		maxTokens: options?.maxTokens,
 		signal: options?.signal,
+		telemetryContext: options?.telemetryContext,
 		cacheRetention: options?.cacheRetention,
 		sessionId: options?.sessionId,
 		headers: options?.headers,
 		onPayload: options?.onPayload,
 		onResponse: options?.onResponse,
+		onProviderStreamEvent: options?.onProviderStreamEvent,
 		timeoutMs: options?.timeoutMs,
 		maxRetries: options?.maxRetries,
 		maxRetryDelayMs: options?.maxRetryDelayMs,
 		metadata: options?.metadata,
+		env: options?.env,
+		toolChoice: options?.toolChoice,
 	};
 
 	const reasoning = options?.reasoning as PiThinkingLevel | undefined;
@@ -530,7 +556,14 @@ export function buildAnthropicOptions(model: Model<Api>, options?: SimpleStreamO
 	return opts;
 }
 
-function streamSimple(model: Model<Api>, context: Context, options?: SimpleStreamOptions): AssistantMessageEventStream {
+// Loads pi-ai's Anthropic Messages implementation on the first request.
+const anthropicMessages = anthropicMessagesApi();
+
+function streamSimple(
+	model: Model<Api>,
+	context: TranscriptContext,
+	options?: SimpleStreamOptions,
+): AssistantMessageEventStream {
 	const opts = buildAnthropicOptions(model, options);
 	// AnthropicVertex extends the same BaseAnthropic class but our copy of
 	// @anthropic-ai/sdk lives in a different node_modules path than pi-ai's
@@ -540,28 +573,29 @@ function streamSimple(model: Model<Api>, context: Context, options?: SimpleStrea
 	// classes share the same shape and the streaming API path doesn't touch
 	// any private state.
 	opts.client = getVertexClient() as unknown as AnthropicOptions["client"];
-	return streamAnthropic(asAnthropicMessagesModel(model), context, opts);
+	return anthropicMessages.stream(asAnthropicMessagesModel(model), context, opts);
 }
 
 /**
- * Bridge our registered model into the shape pi-ai's streamAnthropic expects.
+ * Bridge our registered model into the shape pi-ai's Anthropic Messages
+ * implementation expects.
  *
  * Two things happen here:
  *
- *   1. Type cast. streamAnthropic's signature requires Model<"anthropic-messages">,
+ *   1. Type cast. The Anthropic Messages implementation expects Model<"anthropic-messages">,
  *      but our model's api is "vertex-anthropic". At runtime pi-ai only reads
  *      model.api once (to populate output metadata) — we want our value to flow
  *      through unchanged so cost/usage tracking attributes requests to the
  *      right provider. The cast is a one-place, well-bounded TypeScript escape
- *      hatch. If pi-ai's anthropic.js ever starts dispatching on model.api
+ *      hatch. If pi-ai's anthropic-messages.js ever starts dispatching on model.api
  *      (e.g., to gate provider-specific request shaping), this will need to be
  *      reconsidered.
  *
  *   2. Inject `compat.forceAdaptiveThinking` for adaptive models. pi-ai's
- *      streamAnthropic decides between `thinking: { type: "adaptive" }` +
+ *      Anthropic Messages `stream` decides between `thinking: { type: "adaptive" }` +
  *      `output_config.effort` vs the legacy `thinking: { type: "enabled",
  *      budget_tokens }` shape based ENTIRELY on `model.compat?.forceAdaptiveThinking
- *      === true` (see anthropic.js, the param builder). It does NOT look at
+ *      === true` (see api/anthropic-messages.js, the param builder). It does NOT look at
  *      whether the caller set `effort` vs `thinkingBudgetTokens`. Without this
  *      flag, opus-4-7 / sonnet-4-6 silently fall through to budget-based
  *      thinking with the default 1024-token budget, and our computed `effort`

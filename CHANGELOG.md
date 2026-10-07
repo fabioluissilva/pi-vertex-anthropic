@@ -2,9 +2,19 @@
 
 ## Unreleased
 
+### Changed
+
+- **Breaking:** requires pi 1.0 or newer (peer dependencies `>=1.0.0`). pi-ai 1.0 removed `streamAnthropic` from its root entry point, so the extension now imports `@earendil-works/pi-ai/compat`, which pi's extension loader maps to its own bundled pi-ai, and streams through `anthropicMessagesApi().stream`. On pi 0.75.x–0.79.x, stay on `0.7.x`.
+- `streamSimple` takes pi 1.0's normalized `TranscriptContext`, and `/login` and `refreshToken` honor pi's abort signal (pi 0.84+ requires it for `refreshToken`).
+- Forwarded `onProviderStreamEvent`, `telemetryContext`, `env`, and `toolChoice` to pi-ai, as pi-ai's own Anthropic `streamSimple` does, so the `provider_stream_event` extension event works for this provider.
+
 ### Fixed
 
-- Required `@anthropic-ai/sdk` `>=0.103.0 <1` as a direct dependency. `@anthropic-ai/vertex-sdk` accepts any core SDK from `0.50.3`, but it rewrites `/v1/messages` to the Vertex `:streamRawPredict` path only through the `backendMiddleware` hook that `@anthropic-ai/sdk` `0.103.0` added. With an older core SDK, every request went to `…/v1/v1/messages` and Google returned 404. `test/vertex-wire-shape.test.ts` checks the URL.
+- Required `@anthropic-ai/sdk` `>=0.103.0 <1` as a direct dependency. `@anthropic-ai/vertex-sdk` accepts any core SDK from `0.50.3`, but it rewrites `/v1/messages` to the Vertex `:streamRawPredict` path only through the `backendMiddleware` hook that `@anthropic-ai/sdk` `0.103.0` added. With an older core SDK, every request went to `…/v1/v1/messages` and Google returned 404. `test/vertex-wire-shape.test.ts` checks the URL, for both `client.messages` and `client.beta.messages` (which pi-ai 1.0 uses).
+
+### Tests / tooling
+
+- Development dependencies on pi `1.0.4`. `pi-coding-agent` 0.79.x pins vulnerable `undici`, `minimatch`, and `protobufjs` versions, so `npm audit` (and CI) failed; it now finds none.
 
 ## 0.7.0 — 2026-06-18
 

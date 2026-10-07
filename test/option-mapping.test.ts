@@ -1,4 +1,4 @@
-import type { Api, Model, SimpleStreamOptions } from "@earendil-works/pi-ai";
+import type { Api, Model, SimpleStreamOptions } from "@earendil-works/pi-ai/compat";
 import { describe, expect, it } from "vitest";
 import { buildAnthropicOptions } from "../index.ts";
 
@@ -19,6 +19,22 @@ describe("buildAnthropicOptions", () => {
 		expect(opts.temperature).toBe(0.5);
 		expect(opts.cacheRetention).toBe("long");
 		expect(opts.sessionId).toBe("s1");
+	});
+
+	it("forwards the request hooks, environment, and tool choice that pi-ai's own streamSimple forwards", () => {
+		const onProviderStreamEvent = () => {};
+		const telemetryContext = {} as SimpleStreamOptions["telemetryContext"];
+		const env = { ANTHROPIC_LOG: "debug" } as SimpleStreamOptions["env"];
+		const opts = buildAnthropicOptions(fakeModel("claude-opus-4-8"), {
+			onProviderStreamEvent,
+			telemetryContext,
+			env,
+			toolChoice: "none",
+		});
+		expect(opts.onProviderStreamEvent).toBe(onProviderStreamEvent);
+		expect(opts.telemetryContext).toBe(telemetryContext);
+		expect(opts.env).toBe(env);
+		expect(opts.toolChoice).toBe("none");
 	});
 
 	it("does not set a client (streamSimple injects it separately)", () => {

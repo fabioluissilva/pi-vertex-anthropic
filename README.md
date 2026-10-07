@@ -72,7 +72,7 @@ The login flow probes ADC, then prompts you to pick a Vertex AI region (`global`
 ## Requirements
 
 - Node.js 24 LTS or newer
-- pi 0.75.x or newer (`@earendil-works/*` namespace). If you're still on pi 0.73.x (`@mariozechner/*`), pin this extension to `0.1.x`.
+- pi 1.0 or newer. On pi 0.75.x–0.79.x, pin this extension to `0.7.x`; on pi 0.73.x (`@mariozechner/*`), pin it to `0.1.x`.
 - A GCP project with Vertex AI enabled and Anthropic Claude models granted via [Model Garden](https://console.cloud.google.com/vertex-ai/model-garden)
 - ADC configured via `gcloud` user credentials, service account JSON, the GCE/GKE metadata server, Workload Identity, or any other ADC source
 - The ADC principal must have permission to call Vertex AI prediction APIs, typically via `roles/aiplatform.user` on the project
@@ -110,7 +110,8 @@ If your organization uses custom roles or stricter IAM, make sure the principal 
 | Extension version | pi namespace |
 |---|---|
 | `0.1.x` | `@mariozechner/*` (pi 0.73.x) — frozen |
-| `0.2.x` and newer (current: `0.6.x`) | `@earendil-works/*` (pi 0.75.x+) |
+| `0.2.x`–`0.7.x` | `@earendil-works/*` (pi 0.75.x–0.79.x) — frozen |
+| `0.8.x` and newer | `@earendil-works/*` (pi 1.0+) |
 
 See [CHANGELOG.md](./CHANGELOG.md) for the rename details.
 
@@ -291,7 +292,7 @@ pi maps thinking levels automatically:
 The extension is a single-file shim (~650 lines, a large share of it explanatory comments):
 
 1. **Auth.** `oauth.login` calls `new GoogleAuth().getClient()` from `google-auth-library`. If credentials are available, it stores a sentinel credential in `~/.pi/agent/auth.json` and revalidates daily via `oauth.refreshToken`. Real per-request access token refresh is handled by `google-auth-library` inside the SDK.
-2. **Streaming.** `streamSimple` constructs an `AnthropicVertex` client (cached by project and region) and injects it into pi-ai's built-in `streamAnthropic` via its `client` option. All message conversion, SSE parsing, tool-call handling, prompt caching, and thinking-block plumbing come from upstream pi-ai unchanged.
+2. **Streaming.** `streamSimple` constructs an `AnthropicVertex` client (cached by project and region) and injects it into pi-ai's built-in Anthropic Messages implementation (`anthropicMessagesApi().stream` from `@earendil-works/pi-ai/compat`) via its `client` option. All message conversion, SSE parsing, tool-call handling, prompt caching, and thinking-block plumbing come from upstream pi-ai unchanged.
 
 No subprocess calls, no hand-rolled SSE parser, no Anthropic Messages reimplementation.
 

@@ -11,8 +11,20 @@ import { describe, expect, it } from "vitest";
 // /v1/messages = .../v1/v1/messages, and every call 404s at Google. The
 // ">=0.103.0 <1" floor in package.json is what prevents that; this test fails
 // loudly if the resolved dependency tree regresses before it can ship.
+// pi-ai 1.0 sends through client.beta.messages (/v1/messages?beta=true), and
+// pi-ai 0.79 sent through client.messages, so both paths must be rewritten.
+const REQUEST = {
+	model: "claude-opus-4-8",
+	max_tokens: 16,
+	messages: [{ role: "user" as const, content: "ping" }],
+	stream: true as const,
+};
+
 describe("vertex-sdk wire shape (dependency integration)", () => {
-	it("rewrites /v1/messages to the Vertex :streamRawPredict path", async () => {
+	it.each([
+		["messages", (client: AnthropicVertex) => client.messages.create(REQUEST)],
+		["beta.messages", (client: AnthropicVertex) => client.beta.messages.create(REQUEST)],
+	] as const)("rewrites %s.create to the Vertex :streamRawPredict path", async (_name, send) => {
 		let capturedUrl: string | undefined;
 
 		const capturingFetch = async (input: string | URL) => {
@@ -31,17 +43,11 @@ describe("vertex-sdk wire shape (dependency integration)", () => {
 			fetch: capturingFetch,
 		} as unknown as ConstructorParameters<typeof AnthropicVertex>[0]);
 
-		await expect(
-			client.messages.create({
-				model: "claude-opus-4-8",
-				max_tokens: 16,
-				messages: [{ role: "user", content: "ping" }],
-				stream: true,
-			}),
-		).rejects.toThrow();
+		await expect(send(client)).rejects.toThrow();
 
 		expect(capturedUrl).toBeDefined();
 		expect(capturedUrl).toContain("/publishers/anthropic/models/claude-opus-4-8:streamRawPredict");
 		expect(capturedUrl).not.toContain("/v1/v1/messages");
+		expect(capturedUrl).not.toContain("beta=true");
 	});
 });
