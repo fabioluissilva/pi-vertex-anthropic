@@ -50,7 +50,8 @@
   "//deps": "@anthropic-ai/sdk is a direct dep ONLY to floor @anthropic-ai/vertex-sdk's loose transitive range (>=0.50.3 <1) at >=0.103.0, where the backendMiddleware hook the Vertex URL rewrite needs was introduced. index.ts never imports it; removing it lets the core SDK drift to a version that 404s every request as /v1/v1/messages. Guarded by test/vertex-wire-shape.test.ts.",
   "dependencies": {
     "@anthropic-ai/sdk": ">=0.103.0 <1",
-    "@anthropic-ai/vertex-sdk": "^0.17.1"
+    "@anthropic-ai/vertex-sdk": "^0.17.1",
+    "google-auth-library": "^9.4.2"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": ">=1.0.0",

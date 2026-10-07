@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- Fixed pi crashing when ADC is broken (for example, a missing `GOOGLE_APPLICATION_CREDENTIALS` file). `AnthropicVertex` starts google-auth-library's `getClient()` in its constructor and awaits it only inside a request, so its rejection had no handler and Node stopped pi. Now the request fails with "Failed to acquire Google OAuth credentials." and pi keeps running. `google-auth-library`, which the extension imports, is now a declared dependency.
 - Required `@anthropic-ai/sdk` `>=0.103.0 <1` as a direct dependency. `@anthropic-ai/vertex-sdk` accepts any core SDK from `0.50.3`, but it rewrites `/v1/messages` to the Vertex `:streamRawPredict` path only through the `backendMiddleware` hook that `@anthropic-ai/sdk` `0.103.0` added. With an older core SDK, every request went to `…/v1/v1/messages` and Google returned 404. `test/vertex-wire-shape.test.ts` checks the URL, for both `client.messages` and `client.beta.messages` (which pi-ai 1.0 uses).
 
 ### Tests / tooling

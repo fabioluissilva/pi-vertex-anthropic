@@ -41,6 +41,7 @@ import {
 	type SimpleStreamOptions,
 	type TranscriptContext,
 } from "@earendil-works/pi-ai/compat";
+import { GoogleAuth } from "google-auth-library";
 
 interface ProviderModelConfig {
 	id: string;
@@ -217,13 +218,31 @@ export function resolveRegion(): string {
 
 const clientCache = new Map<string, AnthropicVertex>();
 
+/**
+ * A GoogleAuth whose getClient() promise is marked as handled. AnthropicVertex
+ * calls getClient() in its constructor but awaits the promise only inside a
+ * request, so when ADC is broken (a missing credentials file, no ADC source),
+ * the promise rejected with no handler and Node stopped pi. The request still
+ * awaits the same promise, so it fails with the ADC error instead.
+ */
+function handledGoogleAuth(): GoogleAuth {
+	const auth = new GoogleAuth({ scopes: "https://www.googleapis.com/auth/cloud-platform" });
+	const getClient = auth.getClient.bind(auth);
+	auth.getClient = () => {
+		const client = getClient();
+		client.catch(() => {});
+		return client;
+	};
+	return auth;
+}
+
 function getVertexClient(): AnthropicVertex {
 	const projectId = resolveProjectId();
 	const region = resolveRegion();
 	const key = `${projectId}|${region}`;
 	let client = clientCache.get(key);
 	if (!client) {
-		client = new AnthropicVertex({ projectId, region });
+		client = new AnthropicVertex({ projectId, region, googleAuth: handledGoogleAuth() });
 		clientCache.set(key, client);
 	}
 	return client;
