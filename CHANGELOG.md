@@ -12,6 +12,7 @@
 - **Breaking:** requires pi 1.0 or newer (peer dependencies `>=1.0.0`). pi-ai 1.0 removed `streamAnthropic` from its root entry point, so the extension now imports `@earendil-works/pi-ai/compat`, which pi's extension loader maps to its own bundled pi-ai, and streams through `anthropicMessagesApi().stream`. On pi 0.75.x–0.79.x, stay on `0.7.x`.
 - `streamSimple` takes pi 1.0's normalized `TranscriptContext`, and `/login` and `refreshToken` honor pi's abort signal (pi 0.84+ requires it for `refreshToken`).
 - Forwarded `onProviderStreamEvent`, `telemetryContext`, `env`, and `toolChoice` to pi-ai, as pi-ai's own Anthropic `streamSimple` does, so the `provider_stream_event` extension event works for this provider.
+- Updated `@anthropic-ai/vertex-sdk` from `0.17.1` to `0.20.4`, which itself requires `@anthropic-ai/sdk` `>=0.115.1`. Updated `google-auth-library` from `9` to `10`, the major that `vertex-sdk` uses: the extension passes its own `GoogleAuth` to `AnthropicVertex`, so both must use the same copy (`11` fails the type check). `google-auth-library` 10 no longer pulls in `uuid`, so the `uuid` override is gone.
 
 ### Fixed
 
@@ -20,7 +21,8 @@
 
 ### Tests / tooling
 
-- Development dependencies on pi `1.0.4`. `pi-coding-agent` 0.79.x pins vulnerable `undici`, `minimatch`, and `protobufjs` versions, so `npm audit` (and CI) failed; it now finds none.
+- Development dependencies on pi `1.1.0`. `pi-coding-agent` 0.79.x pins vulnerable `undici`, `minimatch`, and `protobufjs` versions, so `npm audit` (and CI) failed; it now finds none.
+- Updated the other development dependencies: TypeScript `7`, Vitest `5`, Biome `2.5.15` (configuration migrated with `biome migrate`), and `@types/node` `26`. The `test/vertex-wire-shape.test.ts` auth stub now returns a `Headers`, as `google-auth-library` 10's `getRequestHeaders()` does.
 
 ## 0.7.0 — 2026-06-18
 

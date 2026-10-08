@@ -38,8 +38,9 @@ describe("vertex-sdk wire shape (dependency integration)", () => {
 			region: "global",
 			maxRetries: 0,
 			// Stub the ADC client so the OAuth step that precedes the URL rewrite
-			// resolves without real Google credentials.
-			authClient: { getRequestHeaders: async () => ({}) },
+			// resolves without real Google credentials. It returns a Headers, as
+			// google-auth-library's AuthClient does: vertex-sdk calls .get() on it.
+			authClient: { getRequestHeaders: async () => new Headers() },
 			fetch: capturingFetch,
 		} as unknown as ConstructorParameters<typeof AnthropicVertex>[0]);
 
