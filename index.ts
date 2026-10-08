@@ -688,10 +688,12 @@ export default function (pi: ExtensionAPI) {
 		// https://platform.claude.com/docs/en/about-claude/models/overview
 		models: [
 			{
+				// Upstream marks `off` unsupported for this model, so pi does not
+				// offer it.
 				id: "claude-opus-5",
 				name: "Claude Opus 5 (Vertex)",
 				reasoning: true, // adaptive thinking; effort: low/medium/high/xhigh
-				thinkingLevelMap: { xhigh: "xhigh" },
+				thinkingLevelMap: { off: null, xhigh: "xhigh" },
 				input: ["text", "image"],
 				contextWindow: 1_000_000,
 				maxTokens: 128_000,

@@ -5,7 +5,7 @@
 ### Added
 
 - Registered the remaining adaptive-thinking Claude models on Vertex AI: `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, and `claude-opus-4-6`. All four are adaptive-only — Vertex rejects legacy `thinking.type.enabled` with HTTP 400 — so they are mapped in `ADAPTIVE_THINKING`; without that mapping every reasoning request fails. `claude-opus-5-5`, `claude-sonnet-5-5`, and `claude-fable-5-1` expose the `xhigh` slot; `claude-opus-4-6` has none and clamps `xhigh` to `high`, like Sonnet 4.6. Metadata mirrors pi-ai's registry: Opus 5.5 at `$4` / `$20` per MTok (cheaper than Opus 5), Fable 5.1 at `$10` / `$50` with a 0.25× cache read, Sonnet 5.5 at `$2` / `$10`, Opus 4.6 at Opus-tier rates. A registration-level test now fails if a non-budget model is ever added without an `ADAPTIVE_THINKING` entry.
-- Registered Claude 5-generation models (`claude-sonnet-5`, `claude-opus-5`) in the model catalog with adaptive thinking support, including the `xhigh` effort slot on both. Fixes an issue where invoking Claude 5 models on Vertex AI failed with HTTP 400 (`"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`) because they were not mapped in `ADAPTIVE_THINKING` and fell through to legacy budget-based thinking.
+- Registered Claude 5-generation models (`claude-sonnet-5`, `claude-opus-5`) in the model catalog with adaptive thinking support, including the `xhigh` effort slot on both. As in pi-ai's registry, pi does not offer `off` for `claude-opus-5`. Fixes an issue where invoking Claude 5 models on Vertex AI failed with HTTP 400 (`"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`) because they were not mapped in `ADAPTIVE_THINKING` and fell through to legacy budget-based thinking.
 
 ### Changed
 
@@ -18,6 +18,7 @@
 
 - Fixed pi crashing when ADC is broken (for example, a missing `GOOGLE_APPLICATION_CREDENTIALS` file). `AnthropicVertex` starts google-auth-library's `getClient()` in its constructor and awaits it only inside a request, so its rejection had no handler and Node stopped pi. Now the request fails with "Failed to acquire Google OAuth credentials." and pi keeps running. `google-auth-library`, which the extension imports, is now a declared dependency.
 - Required `@anthropic-ai/sdk` `>=0.103.0 <1` as a direct dependency. `@anthropic-ai/vertex-sdk` accepts any core SDK from `0.50.3`, but it rewrites `/v1/messages` to the Vertex `:streamRawPredict` path only through the `backendMiddleware` hook that `@anthropic-ai/sdk` `0.103.0` added. With an older core SDK, every request went to `…/v1/v1/messages` and Google returned 404. `test/vertex-wire-shape.test.ts` checks the URL, for both `client.messages` and `client.beta.messages` (which pi-ai 1.0 uses).
+- Corrected `claude-sonnet-4-6`'s output limit: it was registered with a 64K `max_tokens` cap while Vertex accepts 128K (`max_tokens: 128001 > 128000, which is the maximum allowed number of output tokens for claude-sonnet-4-6`). pi was therefore capping Sonnet 4.6 responses — and clamping its thinking-budget growth — at half the real limit. Now matches pi-ai's registry.
 
 ### Tests / tooling
 
@@ -26,16 +27,8 @@
 
 ## 0.7.0 — 2026-06-18
 
-## 0.7.0 — 2026-06-18
-=======
-### Added
-
-- Registered Claude 5-generation models (`claude-sonnet-5`, `claude-opus-5`) in the model catalog with adaptive thinking support. Fixes an issue where invoking Claude 5 models on Vertex AI failed with HTTP 400 (`"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive" and "output_config.effort"`) because they were not mapped in `ADAPTIVE_THINKING` and fell through to legacy budget-based thinking.
->>>>>>> a8bf935 (fix: support adaptive thinking for Claude 5 models (Sonnet 5, Opus 5))
-
 ### Fixed
 
-- Corrected `claude-sonnet-4-6`'s output limit: it was registered with a 64K `max_tokens` cap while Vertex accepts 128K (`max_tokens: 128001 > 128000, which is the maximum allowed number of output tokens for claude-sonnet-4-6`). pi was therefore capping Sonnet 4.6 responses — and clamping its thinking-budget growth — at half the real limit. Now matches pi-ai's registry.
 - Corrected `claude-fable-5` pricing, limits, and `xhigh` routing. It was registered at Sonnet-tier cost (`$3` / `$15` per MTok, 200K context, 64K output) and clamped `xhigh` to `high`; Fable 5 is actually `$10` / `$50` per MTok with a 1M context window, 128K max output, and `xhigh` support, so pi was under-reporting Fable spend by roughly 3.3× and under-routing its highest thinking level. Now matches Anthropic/pi-ai model metadata.
 
 ### Changed

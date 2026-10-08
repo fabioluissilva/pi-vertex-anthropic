@@ -119,6 +119,15 @@ describe("provider registration", () => {
 		expect(opus.thinkingLevelMap).toEqual({ xhigh: "xhigh" });
 	});
 
+	it("registers opus-5 at Opus-tier pricing with xhigh and the registry's off gap", () => {
+		const { config } = register();
+		const opus = config.models.find((m: { id: string }) => m.id === "claude-opus-5");
+		expect(opus.contextWindow).toBe(1_000_000);
+		expect(opus.maxTokens).toBe(128_000);
+		expect(opus.cost).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 });
+		expect(opus.thinkingLevelMap).toEqual({ off: null, xhigh: "xhigh" });
+	});
+
 	it("registers sonnet-5 with Sonnet 5 pricing, limits, and xhigh metadata", () => {
 		const { config } = register();
 		const sonnet = config.models.find((m: { id: string }) => m.id === "claude-sonnet-5");
